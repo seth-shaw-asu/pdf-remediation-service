@@ -238,7 +238,7 @@ else
   aws bedrock-data-automation create-data-automation-project \
     --project-name ${var.project_name} \
     --project-stage LIVE \
-    --standard-output-configuration 'document={extraction={granularity={types=[DOCUMENT]},boundingBox={state=ENABLED}},outputFormat={textFormat={types=[HTML]},additionalFileFormat={state=DISABLED}}}'
+    --standard-output-configuration 'document={extraction={granularity={types=[DOCUMENT]},boundingBox={state=ENABLED}}}' \
     --region ${var.aws_region} \
     --output json
 fi
