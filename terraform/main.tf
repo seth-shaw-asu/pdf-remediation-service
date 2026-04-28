@@ -231,14 +231,14 @@ set -e
 LIST_OUTPUT=$(aws bedrock-data-automation list-data-automation-projects --region ${var.aws_region} --output json)
 EXISTING_ARN=$(echo "$LIST_OUTPUT" | jq -r ".projects[]? | select(.projectName == \"${var.project_name}\") | .projectArn // empty")
 
-if [[ -n "$EXISTING_ARN" && "$EXISTING_ARN" != "null" ]]; then
+if [ -n "$EXISTING_ARN" ] && [ "$EXISTING_ARN" != "null" ]; then
   echo "Found existing BDA project: $EXISTING_ARN"
 else
   echo "Creating new BDA project: ${var.project_name}"
   aws bedrock-data-automation create-data-automation-project \
     --project-name ${var.project_name} \
     --project-stage LIVE \
-    --standard-output-configuration 'document={extraction={granularity={types=[DOCUMENT]},boundingBox={state=ENABLED}}}' \
+    --standard-output-configuration 'document={extraction={granularity={types=[DOCUMENT]},boundingBox={state=ENABLED}},outputFormat={textFormat={types=[HTML]},additionalFileFormat={state=DISABLED}}}'
     --region ${var.aws_region} \
     --output json
 fi
