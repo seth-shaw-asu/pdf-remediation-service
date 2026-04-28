@@ -194,13 +194,14 @@ async def remediate_pdf(
     output_dir = Path(tempfile.mkdtemp(prefix="pdf_remediation_out_"))
     downloaded_file = download_dir / sanitized_name
 
-    debug_mode = debug is not None
+    if debug is not None:
+        logging.getLogger().setLevel(logging.DEBUG)
+
     try:
         await download_pdf(Apix_Ldp_Resource, downloaded_file)
 
         config = build_process_config()
-        if debug_mode:
-            logger.info("Remediation configuration: %s", config)
+        logger.debug("Remediation configuration: %s", config)
 
         await run_in_threadpool(
             process_pdf_accessibility,
@@ -222,7 +223,7 @@ async def remediate_pdf(
         response.headers["Content-Disposition"] = f"attachment; filename={html_file.name}"
         return response
     finally:
-        if not debug_mode:
+        if debug is not None:
             shutil.rmtree(download_dir, ignore_errors=True)
             shutil.rmtree(output_dir, ignore_errors=True)
             logger.info("Cleaned up temporary files for URL=%s", Apix_Ldp_Resource)
