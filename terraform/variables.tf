@@ -4,6 +4,16 @@ variable "aws_region" {
   default     = "us-west-2"
 }
 
+variable "vpc_id" {
+  description = "Existing VPC ID"
+  type        = string
+}
+
+variable "subnet_ids" {
+  description = "Existing subnet IDs"
+  type        = list(string)
+}
+
 variable "project_name" {
   type        = string
   description = "Name for the Bedrock Data Automation project and deployment resources."
@@ -26,6 +36,11 @@ variable "image_tag" {
   type        = string
   description = "Docker image tag to use for the ECS task definition."
   default     = "latest"
+}
+
+variable "image_uri" {
+  type        = string
+  description = "Full container image URI (e.g. ECR repo URL + tag)"
 }
 
 variable "desired_count" {

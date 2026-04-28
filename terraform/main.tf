@@ -4,61 +4,6 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
-# VPC and subnet creation
-resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  tags = {
-    Name = "${var.project_name}-vpc"
-  }
-}
-
-resource "aws_subnet" "main" {
-  count             = 2
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)
-  availability_zone = data.aws_availability_zones.available.names[count.index]
-
-  tags = {
-    Name = "${var.project_name}-subnet-${count.index + 1}"
-  }
-}
-
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-
-  tags = {
-    Name = "${var.project_name}-igw"
-  }
-}
-
-resource "aws_route_table" "main" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-
-  tags = {
-    Name = "${var.project_name}-rt"
-  }
-}
-
-resource "aws_route_table_association" "main" {
-  count          = 2
-  subnet_id      = aws_subnet.main[count.index].id
-  route_table_id = aws_route_table.main.id
-}
-
-# Use our VPC and subnets
-locals {
-  vpc_id     = aws_vpc.main.id
-  subnet_ids = aws_subnet.main[*].id
-}
-
 resource "random_id" "bucket_suffix" {
   byte_length = 4
 }
@@ -189,7 +134,7 @@ resource "aws_iam_role_policy" "task_role_policy" {
 resource "aws_security_group" "ecs_service" {
   name        = "${var.project_name}-sg"
   description = "Allow inbound HTTP access to ECS tasks"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = var.vpc_id
 
   ingress {
     from_port   = var.container_port
@@ -222,7 +167,7 @@ resource "aws_ecs_task_definition" "service" {
   container_definitions = jsonencode([
     {
       name      = var.project_name
-      image     = "${aws_ecr_repository.app_repo.repository_url}:${var.image_tag}"
+      image     = var.image_uri
       essential = true
       portMappings = [
         {
@@ -231,6 +176,10 @@ resource "aws_ecs_task_definition" "service" {
         }
       ]
       environment = [
+        {
+          name  = "INPUT_BUCKET"
+          value = aws_s3_bucket.bda_bucket.bucket
+        },
         {
           name  = "BDA_PROJECT_ARN"
           value = var.bda_project_arn
@@ -264,7 +213,7 @@ resource "aws_ecs_service" "service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = slice(local.subnet_ids, 0, 2)
+    subnets         = var.subnet_ids
     security_groups = [aws_security_group.ecs_service.id]
     assign_public_ip = true
   }

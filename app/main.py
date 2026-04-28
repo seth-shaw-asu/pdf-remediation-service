@@ -156,7 +156,7 @@ def find_remediated_html(output_dir: Path) -> Path:
 @app.get("/", response_class=JSONResponse)
 async def health_check() -> dict:
     try:
-        from content_accessibility_with_aws.api import process_pdf_accessibility  # noqa: F401
+        from content_accessibility_utility_on_aws.api import process_pdf_accessibility  # noqa: F401
         import_ok = True
         import_error = None
     except Exception as exc:
