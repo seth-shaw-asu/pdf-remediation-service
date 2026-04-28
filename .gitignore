@@ -8,3 +8,15 @@ __pycache__/
 venv/
 build/
 dist/
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
