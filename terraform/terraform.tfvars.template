@@ -1,15 +1,15 @@
 aws_region      = "us-west-2"
 project_name    = "pdf-remediation-test"
-bucket_name     = "pdf-remediation-bucket"
-ecr_repo_name   = "pdf-remediation-app"
+bucket_name     = "pdf-remediation-test-bucket"
+ecr_repo_name   = "pdf-remediation-test-app"
 image_uri       = "<full image URI with:tag>"
 desired_count   = 1
 container_port  = 8080
-vpc_id          = "vpc-01f9ed4702108fef0"
+vpc_id          = "vpc-xxxxxxxxxxxxxxxxx"
 
 subnet_ids = [
-  "subnet-02b1343bf83ae6322",
-  "subnet-0a175a933a579e7ea",
-  "subnet-0b961bbc90300eb3f"
+  "subnet-xxxxxxxxxxxxxxxxx",
+  "subnet-xxxxxxxxxxxxxxxxx",
+  "subnet-xxxxxxxxxxxxxxxxx"
 ]
-bda_project_arn  = "<bda project arn"
+bda_project_arn  = "<bda project arn>"
