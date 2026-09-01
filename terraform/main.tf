@@ -89,13 +89,13 @@ resource "aws_iam_role" "ecs_task_role" {
 }
 
 resource "aws_iam_role_policy" "task_role_policy" {
-  name   = "${var.project_name}-task-policy"
-  role   = aws_iam_role.ecs_task_role.id
+  name = "${var.project_name}-task-policy"
+  role = aws_iam_role.ecs_task_role.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid = "S3Access"
+        Sid    = "S3Access"
         Effect = "Allow"
         Action = [
           "s3:GetObject",
@@ -109,7 +109,7 @@ resource "aws_iam_role_policy" "task_role_policy" {
         ]
       },
       {
-        Sid = "CloudWatchLogs"
+        Sid    = "CloudWatchLogs"
         Effect = "Allow"
         Action = [
           "logs:CreateLogStream",
@@ -119,7 +119,7 @@ resource "aws_iam_role_policy" "task_role_policy" {
         Resource = "*"
       },
       {
-        Sid = "BedrockAccess"
+        Sid    = "BedrockAccess"
         Effect = "Allow"
         Action = [
           "bedrock:*",
@@ -158,8 +158,8 @@ resource "aws_ecs_cluster" "main" {
 resource "aws_ecs_task_definition" "service" {
   family                   = "${var.project_name}-task"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "512"
-  memory                   = "1024"
+  cpu                      = "1024"
+  memory                   = "2048"
   network_mode             = "awsvpc"
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
   task_role_arn            = aws_iam_role.ecs_task_role.arn
@@ -213,8 +213,8 @@ resource "aws_ecs_service" "service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = var.subnet_ids
-    security_groups = [aws_security_group.ecs_service.id]
+    subnets          = var.subnet_ids
+    security_groups  = [aws_security_group.ecs_service.id]
     assign_public_ip = true
   }
 
@@ -238,7 +238,7 @@ else
   aws bedrock-data-automation create-data-automation-project \
     --project-name ${var.project_name} \
     --project-stage LIVE \
-    --standard-output-configuration 'document={extraction={granularity={types=[DOCUMENT]},boundingBox={state=ENABLED}}}' \
+    --standard-output-configuration 'document={extraction={granularity={types=[DOCUMENT,PAGE,ELEMENT]},boundingBox={state=ENABLED}},generativeField={state=ENABLED},outputFormat={textFormat={types=[HTML]},additionalFileFormat={state=ENABLED}}}' \
     --region ${var.aws_region} \
     --output json
 fi
