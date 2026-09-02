@@ -9,6 +9,7 @@ import zipfile
 from pathlib import Path
 from typing import Dict, Optional
 from urllib.parse import urlparse
+from fastapi.staticfiles import StaticFiles
 
 import httpx
 from fastapi import FastAPI, File, Form, Header, HTTPException, Query, UploadFile
@@ -37,7 +38,7 @@ BDA_S3_BUCKET = os.getenv("BDA_S3_BUCKET")
 DEFAULT_REMEDIATION_MODEL = os.getenv("REMEDIATION_MODEL_ID", "amazon.nova-lite-v1:0")
 
 app = FastAPI(title="PDF Accessibility Remediation Service")
-
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 def parse_bool(value: Optional[str], default: bool = True) -> bool:
     if value is None:
@@ -72,139 +73,151 @@ def sanitize_filename(url_or_name: str) -> str:
         name = name[-128:]
     return f"{uuid.uuid4().hex}_{name}"
 
-
 def render_home_page() -> str:
-    return """<!doctype html>
-<html lang=\"en\">
+    header_path = Path("assets/asu-header.html")
+    footer_path = Path("assets/asu-footer.html")
+
+    try:
+        header = header_path.read_text(encoding="utf-8")
+        footer = footer_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        logger.error("Unable to load ASU branding assets: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to load the ASU page branding.",
+        ) from exc
+
+    return f"""<!doctype html>
+<html lang="en">
 <head>
-  <meta charset=\"utf-8\" />
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
-  <title>PDF Accessibility Remediation Service</title>
-  <style>
-    :root {
-      --bg: #f6f8fb;
-      --card: #ffffff;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --border: #d1d5db;
-      --accent: #1d4ed8;
-      --accent2: #0f766e;
-    }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-    .wrap {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 32px 20px 48px;
-    }
-    h1 {
-      margin: 0 0 8px;
-      font-size: 2rem;
-    }
-    p.lead {
-      margin: 0 0 24px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 20px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.05);
-    }
-    h2 {
-      margin: 0 0 10px;
-      font-size: 1.2rem;
-    }
-    label {
-      display: block;
-      font-weight: 600;
-      margin: 14px 0 6px;
-    }
-    input[type=\"file\"], input[type=\"url\"], input[type=\"text\"] {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 0.95rem;
-      background: #fff;
-    }
-    button {
-      margin-top: 16px;
-      border: 0;
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 0.95rem;
-      font-weight: 700;
-      cursor: pointer;
-      color: white;
-    }
-    .btn-upload { background: var(--accent2); }
-    .btn-remediate { background: var(--accent); }
-    .hint {
-      margin-top: 10px;
-      color: var(--muted);
-      font-size: 0.9rem;
-      line-height: 1.4;
-    }
-    .links {
-      margin-top: 18px;
-      font-size: 0.95rem;
-    }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    code {
-      background: #eef2ff;
-      padding: 2px 6px;
-      border-radius: 6px;
-    }
-  </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PDF Accessibility Remediation Service</title>
+
+    <link rel="stylesheet" href="/static/css/asu-theme.css">
+    <link rel="stylesheet" href="/static/css/asu-overrides.css">
+
+    <style>
+        .pdf-remediator {{
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 3rem;
+        }}
+
+        .pdf-remediator h1 {{
+            margin-bottom: 0.75rem;
+        }}
+
+        .pdf-remediator-intro {{
+            margin-bottom: 2rem;
+        }}
+
+        .pdf-remediator-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }}
+
+        .pdf-remediator-card {{
+            border: 1px solid #d6d6d6;
+            padding: 1.5rem;
+            background: #fff;
+        }}
+
+        .pdf-remediator-card h2 {{
+            margin-top: 0;
+        }}
+
+        .pdf-remediator label {{
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }}
+
+        .pdf-remediator input[type="file"],
+        .pdf-remediator input[type="url"] {{
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 1rem;
+        }}
+
+        .pdf-remediator button {{
+            cursor: pointer;
+        }}
+
+        .pdf-remediator-help {{
+            margin-top: 0.75rem;
+            font-size: 0.95rem;
+        }}
+    </style>
 </head>
+
 <body>
-  <div class=\"wrap\">
-    <h1>PDF Accessibility Remediation Service</h1>
-    <p class=\"lead\">Upload a PDF file or provide a URL to convert a PDF into accessible HTML.</p>
+    {header}
 
-    <div class=\"grid\">
-      <div class=\"card\">
-        <h2>Upload a file</h2>
-        <form action=\"/upload\" method=\"post\" enctype=\"multipart/form-data\">
-          <label for=\"file\">Choose a PDF</label>
-          <input id=\"file\" name=\"file\" type=\"file\" accept=\"application/pdf\" required />
-          <button class=\"btn-upload\" type=\"submit\">Upload and remediate</button>
-        </form>
-        <div class=\"hint\">This sends a local PDF directly to the app.</div>
-      </div>
+    <main id="main-content" class="pdf-remediator">
+        <h1>PDF Accessibility Remediation</h1>
 
-      <div class=\"card\">
-        <h2>Enter a URL</h2>
-        <form action=\"/remediate\" method=\"post\">
-          <label for=\"url\">PDF URL</label>
-          <input id=\"url\" name=\"url\" type=\"url\" placeholder=\"https://example.edu/file.pdf\" required />
-          <button class=\"btn-remediate\" type=\"submit\">Remediate from URL</button>
-        </form>
-        <div class=\"hint\">This downloads a PDF from the URL, then processes it.</div>
-      </div>
-    </div>
+        <p class="pdf-remediator-intro">
+            Upload a PDF file or provide a URL to convert a PDF into an accessible HTML package.
+        </p>
 
-    <div class=\"links\">
-      Health check: <a href=\"/health\">/health</a> · API docs: <a href=\"/docs\">/docs</a>
-    </div>
-  </div>
+        <div class="pdf-remediator-grid">
+
+            <section class="pdf-remediator-card" aria-labelledby="upload-heading">
+                <h2 id="upload-heading">Upload a file</h2>
+
+                <form action="/upload" method="post" enctype="multipart/form-data">
+                    <label for="pdf-file">Choose a PDF</label>
+
+                    <input
+                        id="pdf-file"
+                        name="file"
+                        type="file"
+                        accept="application/pdf"
+                        required
+                    >
+
+                    <button type="submit">
+                        Upload and remediate
+                    </button>
+                </form>
+
+                <p class="pdf-remediator-help">
+                    Choose a PDF file from your computer.
+                </p>
+            </section>
+
+            <section class="pdf-remediator-card" aria-labelledby="url-heading">
+                <h2 id="url-heading">Enter a URL</h2>
+
+                <form action="/remediate" method="post">
+                    <label for="pdf-url">PDF URL</label>
+
+                    <input
+                        id="pdf-url"
+                        name="url"
+                        type="url"
+                        placeholder="https://example.edu/file.pdf"
+                        required
+                    >
+
+                    <button type="submit">
+                        Remediate from URL
+                    </button>
+                </form>
+
+                <p class="pdf-remediator-help">
+                    Enter the direct URL of a PDF available to the service.
+                </p>
+            </section>
+
+        </div>
+    </main>
+
+    {footer}
 </body>
 </html>"""
-
 
 async def download_pdf(source_url: str, target_path: Path) -> None:
     headers = {

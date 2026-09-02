@@ -1,0 +1,36 @@
+/*
+ * ASU Header/Footer - Example Overrides
+ *
+ * This stylesheet is provided as a place for application-specific
+ * adjustments to the shared ASU header/footer.
+ *
+ * The rules included here are examples based on one implementation
+ * and may not be required for your application.
+ *
+ * Whenever possible, keep customizations in this file rather than
+ * modifying the shared ASU theme stylesheet directly.
+ */
+
+body {
+    margin: 0;
+}
+
+.page-content {
+    max-width: 1100px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+textarea {
+    width: 100%;
+    min-height: 120px;
+}
+#asu-header + main {
+    margin-top: 15px !important;
+}
+h1, .h1 {
+    font-size: 3rem;
+}
+#footer-innovation .row {
+    margin-bottom: 0;
+}
