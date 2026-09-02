@@ -5,6 +5,7 @@ import re
 import shutil
 import tempfile
 import uuid
+import zipfile
 from pathlib import Path
 from typing import Dict, Optional
 from urllib.parse import urlparse
@@ -287,7 +288,7 @@ def build_process_config() -> Dict[str, object]:
         "conversion_options": conversion_options,
         "audit_options": audit_options,
         "remediation_options": remediation_options,
-        "perform_audit": False,
+        "perform_audit": True,
         "perform_remediation": parse_bool(os.getenv("PERFORM_REMEDIATION", "TRUE"), True),
     }
 
@@ -360,6 +361,28 @@ def resolve_html_output(output_dir: Path) -> Path:
         detail="No HTML output was produced by the remediation process.",
     )
 
+def create_zip_package(source_dir: Path, archive_stem: str) -> Path:
+    fd, zip_name = tempfile.mkstemp(
+        prefix=f"{archive_stem}_",
+        suffix=".zip",
+    )
+    os.close(fd)
+
+    zip_path = Path(zip_name)
+
+    with zipfile.ZipFile(
+        zip_path,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as archive:
+        for path in sorted(source_dir.rglob("*")):
+            if path.is_file():
+                archive.write(
+                    path,
+                    path.relative_to(source_dir).as_posix(),
+                )
+
+    return zip_path
 
 async def process_local_pdf(
     pdf_path: Path,
@@ -369,8 +392,11 @@ async def process_local_pdf(
     debug_mode: bool,
 ) -> FileResponse:
     config = build_process_config()
+
     if debug_mode:
         logger.info("Remediation configuration: %s", config)
+
+    zip_path: Optional[Path] = None
 
     try:
         await run_in_threadpool(
@@ -384,25 +410,43 @@ async def process_local_pdf(
             perform_remediation=config["perform_remediation"],
         )
 
-        html_path = resolve_html_output(output_dir)
-        download_name = f"{Path(original_name).stem or 'remediated'}.html"
+        # The accessibility utility creates the complete output tree.
+        # Package everything it produced rather than selecting one HTML file.
+        archive_stem = Path(original_name).stem or "remediated"
+        zip_path = create_zip_package(output_dir, archive_stem)
+
+        download_name = f"{archive_stem}.zip"
+
         background = None
         if not debug_mode:
-            background = BackgroundTask(cleanup_paths, download_dir, output_dir, html_path)
+            background = BackgroundTask(
+                cleanup_paths,
+                download_dir,
+                output_dir,
+                zip_path,
+            )
 
         response = FileResponse(
-            path=str(html_path),
-            media_type="text/html",
+            path=str(zip_path),
+            media_type="application/zip",
             filename=download_name,
             background=background,
         )
-        response.headers["Content-Disposition"] = f'attachment; filename="{download_name}"'
+
+        response.headers["Content-Disposition"] = (
+            f'attachment; filename="{download_name}"'
+        )
+
         return response
+
     except Exception:
         if not debug_mode:
             cleanup_paths(download_dir, output_dir)
-        raise
 
+            if zip_path is not None:
+                cleanup_paths(zip_path)
+
+        raise
 
 @app.get("/", response_class=HTMLResponse)
 async def home() -> str:
